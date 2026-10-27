@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Unkillable Companies (https://unkillablecompanies.com)
+// SPDX-License-Identifier: MIT
+
 import { describe, expect, mock, test } from 'claude-code/testing'
 
 import { calendarServers, callsOf, duration, EMPTY_CACHE, headline, isDue, parseEvents, pickCall, REFRESH_MS, RETRY_MS, retryDelay, videoLinkOf } from '../hooks/calendar'

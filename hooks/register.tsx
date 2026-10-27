@@ -1,7 +1,8 @@
+// Copyright (c) 2026 Unkillable Companies (https://unkillablecompanies.com)
+// SPDX-License-Identifier: MIT
+//
 // next-call: your next video call above the prompt, ten minutes before it starts,
 // with a one-click Join link. Reads Google Calendar through your own connector.
-//
-// Built by Unkillable Companies (https://unkillablecompanies.com). MIT License.
 
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, PluginOptions, Register } from 'claude-code'

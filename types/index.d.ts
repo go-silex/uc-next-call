@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Unkillable Companies (https://unkillablecompanies.com)
+// SPDX-License-Identifier: MIT
+
 /** One upcoming event that has a video link. */
 export type Call = {
   id: string

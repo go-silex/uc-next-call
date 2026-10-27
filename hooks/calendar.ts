@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Unkillable Companies (https://unkillablecompanies.com)
+// SPDX-License-Identifier: MIT
+//
 // What the mod reads from a calendar, without touching the engine: which
 // connector to ask, how to read its answer, which call to show and what to say.
 

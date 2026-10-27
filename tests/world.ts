@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Unkillable Companies (https://unkillablecompanies.com)
+// SPDX-License-Identifier: MIT
+//
 // The world beneath the mod in tests: a made-up calendar connector, the
 // engine's commands, toasts and logs, all in memory. Every event is invented.
 
