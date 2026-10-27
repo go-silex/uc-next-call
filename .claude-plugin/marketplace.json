@@ -1,0 +1,15 @@
+{
+  "name": "uc-next-call",
+  "owner": {
+    "name": "Unkillable Companies",
+    "url": "https://unkillablecompanies.com"
+  },
+  "description": "Claude Code mods by Unkillable Companies: next-call, your next video call above the prompt.",
+  "plugins": [
+    {
+      "name": "next-call",
+      "source": "./",
+      "description": "Your next video call above the prompt, ten minutes before it starts, with a one-click Join link."
+    }
+  ]
+}

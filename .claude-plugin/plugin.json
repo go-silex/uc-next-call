@@ -1,0 +1,28 @@
+{
+  "name": "next-call",
+  "version": "0.1.0",
+  "description": "Shows your next video call above the prompt ten minutes before it starts, with a one-click Join link (Google Calendar).",
+  "author": {
+    "name": "Unkillable Companies",
+    "url": "https://unkillablecompanies.com"
+  },
+  "homepage": "https://github.com/go-silex/uc-next-call",
+  "repository": "https://github.com/go-silex/uc-next-call",
+  "license": "MIT",
+  "keywords": ["calendar", "google-meet", "meetings", "reminder", "mod"],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "leadMinutes": {
+      "type": "number",
+      "title": "Minutes before",
+      "description": "How many minutes before a call the band shows up.",
+      "default": 10
+    },
+    "calendarServer": {
+      "type": "string",
+      "title": "Calendar connector",
+      "description": "The MCP server to read events from, as /mcp names it. Leave empty to find your Google Calendar connector automatically.",
+      "default": ""
+    }
+  }
+}
