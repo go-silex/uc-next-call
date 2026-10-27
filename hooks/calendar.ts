@@ -192,27 +192,31 @@ export const minutesLeft = (call: Call, now: number): number => Math.ceil((call.
 
 /** The band's line, before its Join link. */
 export function headline({ call, minutesLeft: left }: Banner): string {
-  const when = left > 0 ? `Call in ${left} min` : left === 0 ? 'Call starting now' : `Call started ${-left} min ago`
+  const when = left > 0 ? `Call in ${duration(left)}` : left === 0 ? 'Call starting now' : `Call started ${duration(-left)} ago`
 
   return `${when} · ${call.title} · ${call.time}`
 }
 
-/** How far off a call is, for `/next-call`: "in 2 h 05 min", "in 7 min", "now". */
+/** A number of minutes as people say it: "7 min", "1 h", "16 h 10 min", "2 d 3 h". */
+export function duration(minutes: number): string {
+  if (minutes < 60) {
+    return `${minutes} min`
+  }
+
+  const hours = Math.floor(minutes / 60)
+
+  if (hours < 24) {
+    return minutes % 60 === 0 ? `${hours} h` : `${hours} h ${minutes % 60} min`
+  }
+
+  return hours % 24 === 0 ? `${Math.floor(hours / 24)} d` : `${Math.floor(hours / 24)} d ${hours % 24} h`
+}
+
+/** How far off a call is, for `/next-call`: "in 2 h 5 min", "in 7 min", "now". */
 export function distance(call: Call, now: number): string {
   const left = minutesLeft(call, now)
 
-  if (left <= 0) {
-    return left === 0 ? 'now' : `started ${-left} min ago`
-  }
-
-  if (left < 60) {
-    return `in ${left} min`
-  }
-
-  const hours = Math.floor(left / 60)
-  const minutes = String(left % 60).padStart(2, '0')
-
-  return hours < 24 ? `in ${hours} h ${minutes} min` : `in ${Math.floor(hours / 24)} d ${hours % 24} h`
+  return left > 0 ? `in ${duration(left)}` : left === 0 ? 'now' : `started ${duration(-left)} ago`
 }
 
 /** Reads the cache back from the store, whatever it holds. */

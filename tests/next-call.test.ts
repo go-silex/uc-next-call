@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 
-import { calendarServers, callsOf, EMPTY_CACHE, headline, isDue, parseEvents, pickCall, REFRESH_MS, RETRY_MS, retryDelay, videoLinkOf } from '../hooks/calendar'
+import { calendarServers, callsOf, duration, EMPTY_CACHE, headline, isDue, parseEvents, pickCall, REFRESH_MS, RETRY_MS, retryDelay, videoLinkOf } from '../hooks/calendar'
 import {
   BAND,
   calendarAnswer,
@@ -83,6 +83,8 @@ describe('when the band shows', () => {
     expect(headline({ call, minutesLeft: 7 })).toBe('Call in 7 min · Weekly sync · 15:00')
     expect(headline({ call, minutesLeft: 0 })).toBe('Call starting now · Weekly sync · 15:00')
     expect(headline({ call, minutesLeft: -3 })).toBe('Call started 3 min ago · Weekly sync · 15:00')
+    expect(headline({ call, minutesLeft: 970 })).toBe('Call in 16 h 10 min · Weekly sync · 15:00')
+    expect([59, 60, 125, 1440, 1500].map(duration)).toEqual(['59 min', '1 h', '2 h 5 min', '1 d', '1 d 1 h'])
   })
 
   test('the calendar is asked again after ten minutes, or after a wait that doubles with each failure', () => {
@@ -206,7 +208,7 @@ describe('the mod in a session', () => {
 
     const { text } = await $.command.run(command('next-call'))
 
-    expect(text).toBe('Next call: Weekly sync at 15:00, in 2 h 05 min.\nJoin: https://meet.google.com/abc-defg-hij')
+    expect(text).toBe('Next call: Weekly sync at 15:00, in 2 h 5 min.\nJoin: https://meet.google.com/abc-defg-hij')
   })
 
   test('/next-call run while the first read is under way waits for it', async ($, on) => {
