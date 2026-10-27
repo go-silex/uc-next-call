@@ -1,6 +1,6 @@
 {
   "name": "next-call",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shows your next video call above the prompt ten minutes before it starts, with a one-click Join link (Google Calendar).",
   "author": {
     "name": "Unkillable Companies",

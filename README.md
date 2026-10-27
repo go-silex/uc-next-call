@@ -58,7 +58,8 @@ Change them in the config menu (`/config` in a terminal session, where each opti
 ## How it works
 
 - Every 30 seconds, the mod checks whether a call is due and updates the band.
-- Every 10 minutes at most, it asks your calendar for your next 20 events. Calendar connectors refuse calls made too close together. Your open sessions share one cache, so opening several does not ask more often.
+- Every 10 minutes at most, it asks your calendar for your next 20 events. Your open sessions share one cache, so opening several does not ask more often.
+- The connector has a quota, which Claude also uses when you ask it about your calendar. When the connector refuses ("Resource has been exhausted"), next-call waits 5 minutes, then 10, 20, 40, up to an hour between tries, and goes back to every 10 minutes once it answers. Meanwhile the band keeps using the calls from the last read that worked.
 - A call is an event that has a video link, was not cancelled and that you did not decline. The link comes from the event's conference (Google Meet), or from a Zoom or Teams link written in its place or notes. Focus time, all-day events and events without a link are left out.
 - The band shows from 10 minutes before the start until 10 minutes after it, or until you hide it.
 

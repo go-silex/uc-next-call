@@ -76,7 +76,8 @@ async function askCalendar($: EngineInterface, settings: Settings, maxAgeMs?: nu
   const now = await $.clock.now()
   const cache = cacheOf(await $.store.get(CACHE_KEY))
 
-  if (!isDue(cache, now, maxAgeMs)) {
+  // `/next-call` passes a minute for both: an answer no older, and no longer wait after a refusal.
+  if (!isDue(cache, now, maxAgeMs, maxAgeMs)) {
     return { cache, outcome: 'ok' }
   }
 
@@ -89,12 +90,14 @@ async function askCalendar($: EngineInterface, settings: Settings, maxAgeMs?: nu
 
   await $.store.set(CACHE_KEY, { ...cache, askedAt: now })
 
+  let isGone = false
+
   for (const server of servers) {
     try {
       const events = parseEvents(await $.mcp.call(server, 'list_events', LIST_EVENTS_ARGS()))
 
       if (events !== null) {
-        const fresh: Cache = { calls: callsOf(events), fetchedAt: now, askedAt: now, server }
+        const fresh: Cache = { calls: callsOf(events), fetchedAt: now, askedAt: now, failures: 0, server }
 
         await $.store.set(CACHE_KEY, fresh)
 
@@ -102,15 +105,16 @@ async function askCalendar($: EngineInterface, settings: Settings, maxAgeMs?: nu
       }
     } catch (error) {
       $.ui.log(`next-call: ${server} did not answer: ${String(error)}`, { to: 'debug' })
-
       // A connector that is gone (renamed, removed) is looked for again next time.
-      if (server === cache.server && !settings.calendarServer) {
-        await $.store.set(CACHE_KEY, { ...cache, askedAt: now, server: undefined })
-      }
+      isGone = isGone || (server === cache.server && !settings.calendarServer)
     }
   }
 
-  return { cache, outcome: 'no-answer' }
+  const failed: Cache = { ...cache, askedAt: now, failures: cache.failures + 1, ...(isGone && { server: undefined }) }
+
+  await $.store.set(CACHE_KEY, failed)
+
+  return { cache: failed, outcome: 'no-answer' }
 }
 
 /** Puts the call due now on the band (or takes it down), and raises a toast the first time. */

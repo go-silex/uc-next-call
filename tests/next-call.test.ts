@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 
-import { calendarServers, callsOf, EMPTY_CACHE, headline, isDue, parseEvents, pickCall, REFRESH_MS, RETRY_MS, videoLinkOf } from '../hooks/calendar'
+import { calendarServers, callsOf, EMPTY_CACHE, headline, isDue, parseEvents, pickCall, REFRESH_MS, RETRY_MS, retryDelay, videoLinkOf } from '../hooks/calendar'
 import {
   BAND,
   calendarAnswer,
@@ -85,12 +85,16 @@ describe('when the band shows', () => {
     expect(headline({ call, minutesLeft: -3 })).toBe('Call started 3 min ago · Weekly sync · 15:00')
   })
 
-  test('the calendar is asked again after ten minutes, or five after a failure', () => {
+  test('the calendar is asked again after ten minutes, or after a wait that doubles with each failure', () => {
     expect(isDue(EMPTY_CACHE, START)).toBe(true)
     expect(isDue({ ...EMPTY_CACHE, fetchedAt: START, askedAt: START }, START + REFRESH_MS - 1)).toBe(false)
     expect(isDue({ ...EMPTY_CACHE, fetchedAt: START, askedAt: START }, START + REFRESH_MS)).toBe(true)
-    expect(isDue({ ...EMPTY_CACHE, fetchedAt: 0, askedAt: START }, START + RETRY_MS - 1)).toBe(false)
-    expect(isDue({ ...EMPTY_CACHE, fetchedAt: 0, askedAt: START }, START + RETRY_MS)).toBe(true)
+    expect(isDue({ ...EMPTY_CACHE, askedAt: START, failures: 1 }, START + RETRY_MS - 1)).toBe(false)
+    expect(isDue({ ...EMPTY_CACHE, askedAt: START, failures: 1 }, START + RETRY_MS)).toBe(true)
+    expect(isDue({ ...EMPTY_CACHE, askedAt: START, failures: 3 }, START + 20 * MINUTE - 1)).toBe(false)
+    expect(isDue({ ...EMPTY_CACHE, askedAt: START, failures: 3 }, START + 20 * MINUTE)).toBe(true)
+    expect([1, 2, 3, 4, 5, 9].map(retryDelay)).toEqual([5, 10, 20, 40, 60, 60].map(minutes => minutes * MINUTE))
+    expect(isDue({ ...EMPTY_CACHE, askedAt: START, failures: 5 }, START + MINUTE, MINUTE, MINUTE), '/next-call asks after a minute whatever the wait').toBe(true)
   })
 })
 
@@ -161,28 +165,35 @@ describe('the mod in a session', () => {
     await ui.unmount()
   })
 
-  test('the calendar is asked once every ten minutes, and five minutes after a refusal', async ($, on) => {
+  test('the calendar is asked once every ten minutes, and ever less often while it refuses', async ($, on) => {
     const world = worldOf(on)
-    const clock = mock.clock(on, { now: START - 60 * MINUTE })
+    const clock = mock.clock(on, { now: START - 200 * MINUTE })
+    const asksAt = async (minutes: number) => {
+      await clock.set(START - 200 * MINUTE + minutes * MINUTE)
+
+      return world.asked.length
+    }
 
     mock.store(on)
     await $.session.start(SESSION)
     await clock.settle()
-    await clock.advance(9 * MINUTE)
-    expect(world.asked).toHaveLength(1)
-
-    await clock.advance(MINUTE)
-    expect(world.asked).toHaveLength(2)
+    expect(await asksAt(9)).toBe(1)
+    expect(await asksAt(10)).toBe(2)
 
     world.isRefusing = true
-    await clock.advance(10 * MINUTE)
-    expect(world.asked).toHaveLength(3)
+    expect(await asksAt(20), 'refused').toBe(3)
+    expect(await asksAt(24), 'waits 5 min').toBe(3)
+    expect(await asksAt(25), 'refused again').toBe(4)
+    expect(await asksAt(34), 'waits 10 min').toBe(4)
+    expect(await asksAt(35)).toBe(5)
+    expect(await asksAt(54), 'waits 20 min').toBe(5)
+    expect(await asksAt(55)).toBe(6)
 
-    await clock.advance(4 * MINUTE)
-    expect(world.asked, 'no new ask before five minutes').toHaveLength(3)
-
-    await clock.advance(MINUTE)
-    expect(world.asked).toHaveLength(4)
+    world.isRefusing = false
+    expect(await asksAt(94), 'waits 40 min').toBe(6)
+    expect(await asksAt(95), 'answered').toBe(7)
+    expect(await asksAt(104), 'back to every ten minutes').toBe(7)
+    expect(await asksAt(105)).toBe(8)
   })
 
   test('/next-call gives the next call and its link', async ($, on) => {

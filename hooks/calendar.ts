@@ -10,8 +10,10 @@ export const MINUTE = 60_000
 export const GRACE_MS = 10 * MINUTE
 /** How often the calendar is asked again: connectors refuse calls made too close together. */
 export const REFRESH_MS = 10 * MINUTE
-/** How long to wait before asking again after a failed call. */
+/** How long to wait before asking again after a first failed call; it doubles with each failure after. */
 export const RETRY_MS = 5 * MINUTE
+/** The longest wait between two asks while the calendar keeps refusing. */
+export const MAX_RETRY_MS = 60 * MINUTE
 
 /** What the mod keeps across sessions, so several open sessions share one read. */
 export type Cache = {
@@ -20,11 +22,20 @@ export type Cache = {
   fetchedAt: number
   /** When the calendar was last asked, answered or not. */
   askedAt: number
+  /** Failed asks in a row since the last answer. */
+  failures: number
   /** The connector that answered, once found. */
   server?: string
 }
 
-export const EMPTY_CACHE: Cache = { calls: [], fetchedAt: 0, askedAt: 0 }
+export const EMPTY_CACHE: Cache = { calls: [], fetchedAt: 0, askedAt: 0, failures: 0 }
+
+/**
+ * How long to wait after `failures` failed asks in a row: 5 min, then 10, 20,
+ * 40, then an hour at most. A connector over its quota (which Claude shares
+ * when you ask it about your calendar) is left alone until it recovers.
+ */
+export const retryDelay = (failures: number): number => Math.min(RETRY_MS * 2 ** Math.max(0, failures - 1), MAX_RETRY_MS)
 
 /** The next twenty regular events from now, soonest first, within the connector's default seven days. */
 export const LIST_EVENTS_ARGS = (): Record<string, unknown> => ({ orderBy: 'startTime', eventType: ['DEFAULT'], pageSize: 20 })
@@ -216,17 +227,19 @@ export function cacheOf(value: unknown): Cache {
     calls: Array.isArray(cache.calls) ? cache.calls : [],
     fetchedAt: typeof cache.fetchedAt === 'number' ? cache.fetchedAt : 0,
     askedAt: typeof cache.askedAt === 'number' ? cache.askedAt : 0,
+    failures: typeof cache.failures === 'number' ? cache.failures : 0,
     ...(typeof cache.server === 'string' && { server: cache.server }),
   }
 }
 
 /**
  * Whether the calendar should be asked again now: its answer is older than
- * `maxAgeMs`, and no ask is under way or failed less than `RETRY_MS` ago (an
+ * `maxAgeMs`, and no ask is under way or failed less than `retryDelay` ago (an
  * ask newer than the answer is one of those: another session may be making it).
+ * `maxWaitMs` caps that wait, for someone who ran `/next-call` and is waiting.
  */
-export function isDue(cache: Cache, now: number, maxAgeMs = REFRESH_MS): boolean {
-  const isWaiting = cache.askedAt > cache.fetchedAt && now - cache.askedAt < Math.min(RETRY_MS, maxAgeMs)
+export function isDue(cache: Cache, now: number, maxAgeMs = REFRESH_MS, maxWaitMs = MAX_RETRY_MS): boolean {
+  const isWaiting = cache.askedAt > cache.fetchedAt && now - cache.askedAt < Math.min(retryDelay(cache.failures), maxWaitMs)
 
   return now - cache.fetchedAt >= maxAgeMs && !isWaiting
 }
