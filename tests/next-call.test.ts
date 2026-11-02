@@ -3,7 +3,21 @@
 
 import { describe, expect, mock, test } from 'claude-code/testing'
 
-import { calendarServers, callsOf, duration, EMPTY_CACHE, headline, isDue, parseEvents, pickCall, REFRESH_MS, RETRY_MS, retryDelay, videoLinkOf } from '../hooks/calendar'
+import {
+  calendarServers,
+  callsOf,
+  duration,
+  EMPTY_CACHE,
+  headline,
+  isDue,
+  parseEvents,
+  pickCall,
+  REFRESH_MS,
+  RETRY_MS,
+  retryDelay,
+  serversToAsk,
+  videoLinkOf,
+} from '../hooks/calendar'
 import {
   BAND,
   calendarAnswer,
@@ -55,6 +69,15 @@ describe('reading the calendar', () => {
     expect(calendarServers(TOOLS), 'an events app is never asked').toEqual([SERVER])
     expect(calendarServers([...TOOLS, { name: 'mcp__claude_ai_Google_Calendar__list_events', description: '', mcp: true }])).toEqual(['claude_ai_Google_Calendar', SERVER])
     expect(calendarServers([{ name: 'Bash', description: '', mcp: false }])).toEqual([])
+  })
+
+  test('only connected connectors are asked: the setting alone, else the one that answered last first', () => {
+    const google = { name: 'mcp__claude_ai_Google_Calendar__list_events', description: '', mcp: true }
+
+    expect(serversToAsk(TOOLS, '', 'claude_ai_Google_Calendar'), 'the last one is not connected yet').toEqual([SERVER])
+    expect(serversToAsk([...TOOLS, google], '', SERVER)).toEqual([SERVER, 'claude_ai_Google_Calendar'])
+    expect(serversToAsk([...TOOLS, google], 'claude.ai Google Calendar'), 'as /mcp spells it').toEqual(['claude_ai_Google_Calendar'])
+    expect(serversToAsk(TOOLS, 'claude.ai Google Calendar'), 'the setting, not connected yet').toEqual([])
   })
 })
 
@@ -199,6 +222,32 @@ describe('the mod in a session', () => {
     expect(await asksAt(95), 'answered').toBe(7)
     expect(await asksAt(104), 'back to every ten minutes').toBe(7)
     expect(await asksAt(105)).toBe(8)
+  })
+
+  test('a session that opens before its calendar connector reads it once the connector joins, and counts no failure', async ($, on) => {
+    const world = worldOf(on)
+    const clock = mock.clock(on, { now: START - 5 * MINUTE })
+    const connectors = world.tools
+
+    // Another session read the calendar an hour ago, through a connector this one names differently.
+    const lastRead = { calls: [], fetchedAt: START - 65 * MINUTE, askedAt: START - 65 * MINUTE, failures: 0, server: 'claude_ai_Google_Calendar' }
+
+    world.tools = [{ name: 'Bash', description: 'Runs a shell command.', mcp: false }]
+    mock.store(on, { cache: lastRead })
+    await $.session.start(SESSION)
+    await clock.settle()
+    await clock.advance(25_000)
+    expect(world.asked, 'nothing asked before the connector is there').toEqual([])
+
+    // A failure would hold the next read five minutes: it comes at the next beat.
+    world.tools = connectors
+    await clock.advance(5_000)
+    expect(world.asked.map(ask => ask.server)).toEqual([SERVER])
+
+    const ui = await $.ui.mount({ ...BAND, plugin: PLUGIN })
+
+    expect((await ui.find({ type: 'Link' }))?.props.href).toBe('https://meet.google.com/abc-defg-hij')
+    await ui.unmount()
   })
 
   test('/next-call gives the next call and its link', async ($, on) => {

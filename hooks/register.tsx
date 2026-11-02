@@ -10,7 +10,6 @@ import type { EngineInterface, PluginOptions, Register } from 'claude-code'
 import type { Banner } from '../types'
 import {
   cacheOf,
-  calendarServers,
   callsOf,
   distance,
   headline,
@@ -21,6 +20,7 @@ import {
   nextCall,
   parseEvents,
   pickCall,
+  serversToAsk,
   type Cache,
 } from './calendar'
 
@@ -82,16 +82,14 @@ async function askCalendar($: EngineInterface, settings: Settings, maxAgeMs?: nu
     return { cache, outcome: 'ok' }
   }
 
-  const known = settings.calendarServer || cache.server
-  const servers = known ? [known] : calendarServers(await $.tool.list())
+  const servers = serversToAsk(await $.tool.list(), settings.calendarServer, cache.server)
 
+  // Nothing asked, nothing failed: the timer looks again in thirty seconds.
   if (servers.length === 0) {
     return { cache, outcome: 'no-connector' }
   }
 
   await $.store.set(CACHE_KEY, { ...cache, askedAt: now })
-
-  let isGone = false
 
   for (const server of servers) {
     try {
@@ -106,12 +104,10 @@ async function askCalendar($: EngineInterface, settings: Settings, maxAgeMs?: nu
       }
     } catch (error) {
       $.ui.log(`next-call: ${server} did not answer: ${String(error)}`, { to: 'debug' })
-      // A connector that is gone (renamed, removed) is looked for again next time.
-      isGone = isGone || (server === cache.server && !settings.calendarServer)
     }
   }
 
-  const failed: Cache = { ...cache, askedAt: now, failures: cache.failures + 1, ...(isGone && { server: undefined }) }
+  const failed: Cache = { ...cache, askedAt: now, failures: cache.failures + 1 }
 
   await $.store.set(CACHE_KEY, failed)
 

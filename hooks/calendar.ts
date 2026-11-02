@@ -69,6 +69,28 @@ export function calendarServers(tools: readonly ToolInfo[]): string[] {
   return scored.sort((a, b) => b.score - a.score).map(({ server }) => server)
 }
 
+/** A server's name as its tools spell it: `claude.ai Google Calendar` is `claude_ai_Google_Calendar`. */
+export const toolSpelling = (server: string): string => server.replace(/[^a-zA-Z0-9_-]/g, '_')
+
+/**
+ * The connectors to ask now, among those connected: the one named in the
+ * settings and no other, else the calendars found, the one that answered last
+ * first. A connector still starting is not there yet (claude.ai connectors join
+ * a session a few seconds after it opens): asked, it would fail, and that
+ * failure would count as a refusal and put the next read off by up to an hour.
+ */
+export function serversToAsk(tools: readonly ToolInfo[], setting: string, last?: string): string[] {
+  if (setting) {
+    const server = toolSpelling(setting)
+
+    return tools.some(tool => tool.name === `mcp__${server}__list_events`) ? [server] : []
+  }
+
+  const found = calendarServers(tools)
+
+  return last !== undefined && found.includes(last) ? [last, ...found.filter(server => server !== last)] : found
+}
+
 type RawEvent = {
   id?: unknown
   summary?: unknown
